@@ -37,6 +37,6 @@
 
 ---
 ## 👤 作者資訊
-**Hugo (黃兆聰)**
+**Hugo**
 - 專業領域：營運流程自動化、通路開發管理、電商數據工具開發。
 - 數位實驗室：[hugo-digital-lab](https://github.com/hugo-digital-lab)
