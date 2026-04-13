@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>宏勤 出貨明細轉單</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <style>
+        :root { --primary: #334155; --accent: #2563eb; --bg: #f8fafc; --success: #059669; }
+        body { font-family: "Microsoft JhengHei", sans-serif; background-color: var(--bg); margin: 0; padding: 20px; color: #1e293b; }
+        .container { max-width: 1000px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        
+        header { text-align: center; margin-bottom: 25px; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; }
+        h1 { margin: 0; color: var(--primary); font-size: 24px; letter-spacing: 1px; }
+
+        .step-title { font-size: 16px; font-weight: bold; margin-bottom: 15px; display: flex; align-items: center; color: var(--primary); }
+        .step-num { background: var(--primary); color: white; border-radius: 50%; width: 22px; height: 22px; display: inline-flex; justify-content: center; align-items: center; font-size: 12px; margin-right: 8px; }
+
+        /* 上傳區域 */
+        .upload-box { border: 2px dashed #cbd5e1; padding: 30px; text-align: center; border-radius: 10px; cursor: pointer; background: #fff; transition: 0.3s; margin-bottom: 30px; }
+        .upload-box:hover, .upload-box.dragover { border-color: var(--accent); background: #f0f7ff; }
+        #fileInput { display: none; }
+
+        /* 設定區域 */
+        .config-section { margin-top: 25px; padding: 20px; background: #f8fafc; border-radius: 10px; display: none; border: 1px solid #e2e8f0; margin-bottom: 30px; }
+        .mapping-table { width: 100%; border-collapse: collapse; }
+        .mapping-table th { text-align: left; font-size: 13px; color: #64748b; padding-bottom: 8px; }
+        .mapping-table td { padding: 6px 4px; }
+        input[type="text"], select { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 14px; box-sizing: border-box; }
+
+        .extra-header { margin-top: 20px; border-top: 1px dashed #e2e8f0; padding-top: 15px; display: flex; justify-content: space-between; align-items: center; }
+        .add-btn { background: #fff; color: var(--accent); border: 1px solid var(--accent); padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+        .extra-item { display: flex; align-items: center; gap: 10px; margin-top: 10px; background: white; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; }
+        .remove-btn { color: #dc2626; cursor: pointer; font-size: 18px; padding: 0 5px; }
+
+        /* 按鈕區 */
+        .action-btns { display: flex; gap: 15px; margin-top: 20px; }
+        .preview-btn { flex: 1; padding: 16px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .download-btn { flex: 1; padding: 16px; background: var(--success); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; display: none; }
+
+        /* 預覽區 */
+        #preview-container { margin-top: 30px; border: 2px solid #e2e8f0; padding: 10px; border-radius: 8px; background: #94a3b8; display: none; }
+        .preview-label { text-align: center; color: white; font-size: 12px; margin-bottom: 10px; font-weight: bold; }
+
+        /* PDF 內容結構 - 極致置頂與分頁優化 */
+        #pdf-content { width: 100%; background: white; }
+        .print-page { 
+            width: 210mm; 
+            min-height: 296mm; 
+            padding: 0mm 15mm 10mm 15mm; 
+            box-sizing: border-box; 
+            page-break-after: always; 
+            background: white; 
+            color: black; 
+            margin: 0 auto;
+            position: relative; /* 為了讓頁碼絕對定位 */
+        }
+        .print-page:last-child { 
+            page-break-after: auto !important; 
+        }
+
+        .slip-header { 
+            display: flex; 
+            justify-content: space-between; 
+            border-bottom: 2px solid #000; 
+            padding-bottom: 5px; 
+            padding-top: 10mm; 
+            margin-bottom: 15px; 
+            align-items: flex-end; 
+        }
+        .slip-header h2 { margin: 0; font-size: 24px; line-height: 1; }
+        .item-table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        .item-table th, .item-table td { border: 1px solid #000; padding: 8px; text-align: left; font-size: 14px; }
+        .item-table th { background: #f2f2f2; }
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px; font-size: 14px; }
+        .remark-box { border: 1px solid #000; padding: 12px; min-height: 50px; margin-top: 8px; white-space: pre-wrap; font-size: 13px; }
+        
+        /* 頁碼樣式 */
+        .page-counter {
+            position: absolute;
+            bottom: 10mm;
+            right: 15mm;
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        .footer-sign { text-align: center; margin-top: 40px; font-size: 12px; color: #94a3b8; border-top: 1px solid #eee; padding-top: 15px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header class="no-print">
+        <h1>宏勤 出貨明細轉單</h1>
+    </header>
+
+    <div class="step-title no-print"><span class="step-num">1</span> 載入原始資料 (Excel / CSV)</div>
+    <div id="dropZone" class="upload-box no-print">
+        <strong id="statusText">將檔案拖曳至此</strong>
+        <p style="color:#64748b; font-size:14px;">或是點擊選擇檔案</p>
+        <input type="file" id="fileInput" accept=".xlsx, .xls, .csv">
+    </div>
+
+    <div id="configSection" class="config-section no-print">
+        <div class="step-title"><span class="step-num">2</span> 欄位對應與名稱修改</div>
+        <table class="mapping-table">
+            <thead>
+                <tr>
+                    <th width="45%">PDF 顯示名稱 (可修改)</th>
+                    <th width="55%">對應 Excel 原始欄位</th>
+                </tr>
+            </thead>
+            <tbody id="basicFields"></tbody>
+        </table>
+        <div class="extra-header">
+            <h3 style="margin:0; font-size: 15px;">＋ 客製額外資訊</h3>
+            <button class="add-btn" onclick="addExtraField()">新增欄位</button>
+        </div>
+        <div id="extraFieldsContainer"></div>
+        <div class="action-btns">
+            <button class="preview-btn" onclick="preparePreview()">產出預覽畫面</button>
+            <button id="downloadBtn" class="download-btn" onclick="downloadPDF()">下載 PDF 檔案</button>
+        </div>
+    </div>
+
+    <div id="preview-container" class="no-print">
+        <div class="preview-label">--- 預覽區 (PREVIEW) ---</div>
+        <div id="pdf-content"></div>
+    </div>
+
+    <div class="footer-sign no-print">
+        by：Hugo | 版本：2026-04-13
+    </div>
+</div>
+
+<script>
+    let rawData = [];
+    let headers = [];
+    let extraCount = 0;
+
+    const baseConfig = [
+        { id: "orderId", label: "訂單編號", match: ["訂單編號", "Order ID"] },
+        { id: "sku", label: "SKU / 料號", match: ["SKU", "料號"] },
+        { id: "itemName", label: "商品項目名稱", match: ["項目", "商品名稱"] },
+        { id: "qty", label: "數量", match: ["數量", "Qty"] },
+        { id: "remark", label: "備註說明", match: ["備註", "Remark"] }
+    ];
+
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+
+    dropZone.onclick = () => fileInput.click();
+    dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('dragover'); };
+    dropZone.ondragleave = () => dropZone.classList.remove('dragover');
+    dropZone.ondrop = (e) => { e.preventDefault(); handleFile(e.dataTransfer.files[0]); };
+    fileInput.onchange = (e) => handleFile(e.target.files[0]);
+
+    function handleFile(file) {
+        if(!file) return;
+        document.getElementById('statusText').innerText = "已載入：" + file.name;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const workbook = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+            rawData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+            headers = Object.keys(rawData[0]);
+            renderConfigUI();
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    function renderConfigUI() {
+        const container = document.getElementById('basicFields');
+        container.innerHTML = "";
+        document.getElementById('configSection').style.display = "block";
+        document.getElementById('preview-container').style.display = "none";
+        document.getElementById('downloadBtn').style.display = "none";
+        baseConfig.forEach(conf => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td><input type="text" id="label_${conf.id}" value="${conf.label}"></td><td><select id="src_${conf.id}"></select></td>`;
+            const sel = tr.querySelector('select');
+            headers.forEach(h => {
+                const opt = new Option(h, h);
+                if(conf.match.some(m => h.includes(m))) opt.selected = true;
+                sel.add(opt);
+            });
+            container.appendChild(tr);
+        });
+    }
+
+    function addExtraField() {
+        extraCount++;
+        const id = `ex_${extraCount}`;
+        const div = document.createElement('div');
+        div.className = "extra-item";
+        div.id = `row_${id}`;
+        div.innerHTML = `<input type="text" id="extraLabel_${id}" placeholder="標題" style="width:120px;"><select id="extraSrc_${id}" style="flex:1;"></select><span class="remove-btn" onclick="document.getElementById('row_${id}').remove()">✕</span>`;
+        const sel = div.querySelector('select');
+        headers.forEach(h => sel.add(new Option(h, h)));
+        document.getElementById('extraFieldsContainer').appendChild(div);
+    }
+
+    function preparePreview() {
+        const content = document.getElementById('pdf-content');
+        const settings = {
+            orderId: { label: document.getElementById('label_orderId').value, src: document.getElementById('src_orderId').value },
+            sku: { label: document.getElementById('label_sku').value, src: document.getElementById('src_sku').value },
+            itemName: { label: document.getElementById('label_itemName').value, src: document.getElementById('src_itemName').value },
+            qty: { label: document.getElementById('label_qty').value, src: document.getElementById('src_qty').value },
+            remark: { label: document.getElementById('label_remark').value, src: document.getElementById('src_remark').value }
+        };
+        const extras = [];
+        document.querySelectorAll('.extra-item').forEach(item => {
+            const id = item.id.replace('row_', '');
+            extras.push({ label: document.getElementById(`extraLabel_${id}`).value || "資訊", src: document.getElementById(`extraSrc_${id}`).value });
+        });
+        const grouped = rawData.reduce((acc, row) => {
+            const id = row[settings.orderId.src];
+            if(!id) return acc;
+            if(!acc[id]) acc[id] = [];
+            acc[id].push(row);
+            return acc;
+        }, {});
+
+        const orderIds = Object.keys(grouped);
+        const totalPages = orderIds.length;
+
+        let html = "";
+        orderIds.forEach((orderId, index) => {
+            const items = grouped[orderId];
+            html += `
+                <div class="print-page">
+                    <div class="slip-header">
+                        <h2>出貨明細單</h2>
+                        <div style="text-align:right; font-size:13px;">日期: ${new Date().toLocaleDateString()}</div>
+                    </div>
+                    <div class="info-grid">
+                        <div><strong>${settings.orderId.label}:</strong> ${orderId}</div>
+                        ${extras.map(e => `<div><strong>${e.label}:</strong> ${items[0][e.src] || '-'}</div>`).join('')}
+                    </div>
+                    <table class="item-table">
+                        <thead><tr><th width="10%">序號</th><th width="25%">${settings.sku.label}</th><th width="50%">${settings.itemName.label}</th><th width="15%">${settings.qty.label}</th></tr></thead>
+                        <tbody>${items.map((it, idx) => `<tr><td>${idx+1}</td><td>${it[settings.sku.src] || '-'}</td><td>${it[settings.itemName.src] || '-'}</td><td>${it[settings.qty.src] || '1'}</td></tr>`).join('')}</tbody>
+                    </table>
+                    <div style="font-weight:bold; font-size:14px;">${settings.remark.label}:</div>
+                    <div class="remark-box">${items[0][settings.remark.src] || '無'}</div>
+                    
+                    <div class="page-counter">${index + 1} / ${totalPages}</div>
+                </div>
+            `;
+        });
+        
+        content.innerHTML = html;
+        document.getElementById('preview-container').style.display = "block";
+        document.getElementById('downloadBtn').style.display = "block";
+        document.getElementById('preview-container').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function downloadPDF() {
+        const element = document.getElementById('pdf-content');
+        window.scrollTo(0,0);
+        const opt = { 
+            margin: [0, 0, 0, 0],
+            filename: `宏勤出貨明細_${Date.now()}.pdf`, 
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { 
+                scale: 2, 
+                useCORS: true,
+                scrollY: 0,
+                scrollX: 0
+            }, 
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } 
+        };
+        html2pdf().set(opt).from(element).save();
+    }
+</script>
+</body>
+</html>
