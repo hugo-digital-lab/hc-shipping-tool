@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>宏勤 出貨明細轉單系統 v3.0</title>
+    <title>宏勤 出貨明細轉單系統 v3.3</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     
     <style>
-        :root { --primary: #334155; --accent: #2563eb; --bg: #f8fafc; --success: #059669; }
+        :root { --primary: #334155; --accent: #2563eb; --bg: #f8fafc; --success: #059669; --danger: #dc2626; }
         body { font-family: "Microsoft JhengHei", sans-serif; background-color: var(--bg); margin: 0; padding: 20px; color: #1e293b; }
         .container { max-width: 1000px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
         
@@ -23,34 +23,32 @@
         .upload-box.dragover { border-color: var(--accent); background: #f0f7ff; }
         #fileInput { display: none; }
 
-        /* 設定區域 */
         .config-section { margin-top: 25px; padding: 25px; background: #f8fafc; border-radius: 10px; display: none; border: 1px solid #e2e8f0; margin-bottom: 30px; }
         .mapping-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
         .mapping-header { font-size: 13px; color: #64748b; font-weight: bold; margin-bottom: 5px; }
-        input[type="text"], select { padding: 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 14px; box-sizing: border-box; }
+        input[type="text"], input[type="date"], select { padding: 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 14px; box-sizing: border-box; }
 
         .extra-header { margin-top: 20px; border-top: 1px dashed #e2e8f0; padding-top: 15px; display: flex; justify-content: space-between; align-items: center; }
         .add-btn { background: #fff; color: var(--accent); border: 1px solid var(--accent); padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; }
 
-        /* 拖曳項目 */
         .extra-item { display: flex; align-items: center; gap: 10px; margin-top: 10px; background: white; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0; }
         .drag-handle { cursor: grab; color: #cbd5e1; font-size: 20px; }
-        .remove-btn { color: #dc2626; cursor: pointer; font-size: 18px; margin-left: auto; }
+        .remove-btn { color: var(--danger); cursor: pointer; font-size: 18px; margin-left: auto; }
 
-        /* 個別編輯面板 */
-        .individual-edit-btn { background: #fff; color: #64748b; border: 1px solid #cbd5e1; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-top: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .edit-panel { background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; margin-top: 10px; border-radius: 10px; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .no-print-edit-wrapper { position: absolute; left: -330px; top: 10px; width: 310px; }
+        .individual-edit-btn { background: #fff; color: #64748b; border: 1px solid #cbd5e1; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); width: 100%; text-align: left; }
+        .edit-panel { background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; margin-top: 10px; border-radius: 10px; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.05); max-height: 800px; overflow-y: auto; }
         .edit-field-group { margin-bottom: 12px; }
         .edit-field-group label { display: block; font-size: 12px; color: #64748b; margin-bottom: 4px; font-weight: bold; }
-        .edit-field-group input { width: 100%; padding: 8px; font-size: 13px; }
+        .edit-field-group input, .edit-field-group textarea { width: 100%; padding: 8px; font-size: 13px; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 4px;}
 
-        .action-btns { display: flex; gap: 15px; margin-top: 20px; }
-        .preview-btn { flex: 1; padding: 16px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
-        .download-btn { flex: 1; padding: 16px; background: var(--success); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; display: none; }
+        .action-btns { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 20px; }
+        .preview-btn { flex: 2; padding: 16px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; min-width: 200px; }
+        .reset-all-btn { flex: 1; padding: 16px; background: #fff; color: var(--danger); border: 1px solid var(--danger); border-radius: 8px; font-size: 14px; cursor: pointer; min-width: 150px; }
+        .download-btn { flex: 1; padding: 16px; background: var(--success); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; display: none; width: 100%; margin-top: 10px;}
 
         #preview-container { margin-top: 30px; border: 2px solid #e2e8f0; padding: 10px; border-radius: 8px; background: #94a3b8; display: none; }
 
-        /* PDF 樣式 */
         .print-page { width: 210mm; min-height: 296mm; padding: 5mm 15mm 10mm 15mm; box-sizing: border-box; page-break-after: always; background: white; color: black; margin: 0 auto; position: relative; }
         .slip-header { display: flex; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 5px; padding-top: 10mm; margin-bottom: 15px; align-items: flex-end; }
         .item-table { width: 100%; border-collapse: collapse; margin: 15px 0; }
@@ -58,14 +56,12 @@
         .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px; font-size: 14px; }
         .remark-box { border: 1px solid #000; padding: 12px; min-height: 50px; margin-top: 8px; white-space: pre-wrap; font-size: 13px; }
         .page-counter { position: absolute; bottom: 10mm; right: 15mm; font-size: 12px; color: #64748b; }
-        
-        .no-print { display: block; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <header class="no-print"><h1>宏勤 出貨明細轉單 <span>v3.0</span></h1></header>
+    <header class="no-print"><h1>宏勤 出貨明細轉單 <span>v3.3</span></h1></header>
 
     <div class="step-title no-print"><span class="step-num">1</span> 載入原始資料 (Excel / CSV)</div>
     <div id="dropZone" class="upload-box no-print">
@@ -85,13 +81,13 @@
         <div id="extraFieldsContainer"></div>
 
         <div class="action-btns">
-            <button class="preview-btn" onclick="preparePreview()">1. 產出預覽 (可在下方進行單筆修改)</button>
-            <button id="downloadBtn" class="download-btn" onclick="downloadPDF()">2. 下載所有 PDF</button>
+            <button class="preview-btn" onclick="preparePreview()">1. 產出預覽 (套用當前設定)</button>
+            <button class="reset-all-btn" onclick="clearAllOverrides()">清除所有手動修改</button>
         </div>
+        <button id="downloadBtn" class="download-btn" onclick="downloadPDF()">2. 下載所有 PDF</button>
     </div>
 
     <div id="preview-container" class="no-print">
-        <div style="text-align: center; color: white; margin-bottom: 10px; font-size: 12px;">--- 預覽區 (每張單可獨立點擊左側按鈕修改) ---</div>
         <div id="pdf-content"></div>
     </div>
 </div>
@@ -100,12 +96,30 @@
     let rawData = [];
     let headers = [];
     let extraCount = 0;
-    let individualOverrides = {}; // 格式: { orderId: { remark: "", extras: { "欄位名": "自訂值" } } }
+    let individualOverrides = {}; 
+
+    // 日期序號轉換函數
+    function formatExcelDate(val) {
+        if (!val) return "";
+        // 如果是數字 (Excel 日期序列，例如 46155)
+        if (typeof val === 'number') {
+            const date = new Date(Math.round((val - 25569) * 864e5));
+            return date.toISOString().split('T')[0];
+        }
+        // 如果是字串
+        const str = String(val).trim();
+        // 檢查是否符合 YYYY-MM-DD 或類似開頭
+        if (/^\d{4}/.test(str)) {
+            return str.split(' ')[0].replace(/\//g, '-');
+        }
+        return str; 
+    }
 
     const baseConfig = [
         { id: "orderId", label: "訂單編號", match: ["訂單編號", "Order ID"] },
+        { id: "orderTime", label: "訂單時間", match: ["訂單時間", "建立時間", "Order Date", "時間"] },
         { id: "sku", label: "SKU / 料號", match: ["SKU", "料號"] },
-        { id: "itemName", label: "商品項目名稱", match: ["項目", "商品名稱"] },
+        { id: "itemName", label: "商品項目名稱", match: ["項目", "商品名稱", "品名"] },
         { id: "qty", label: "數量", match: ["數量", "Qty"] },
         { id: "remark", label: "備註說明", match: ["備註", "Remark"] }
     ];
@@ -169,11 +183,20 @@
         document.getElementById(`extraManual_${id}`).style.display = (mode === 'manual') ? 'block' : 'none';
     }
 
+    function clearAllOverrides() {
+        if(confirm("確定要清除所有手動修改過的內容嗎？")) {
+            individualOverrides = {};
+            preparePreview();
+        }
+    }
+
     function preparePreview() {
         const content = document.getElementById('pdf-content');
         content.innerHTML = "";
+        
         const settings = {
             orderId: { label: document.getElementById('label_orderId').value, src: document.getElementById('src_orderId').value },
+            orderTime: { label: document.getElementById('label_orderTime').value, src: document.getElementById('src_orderTime').value },
             sku: { label: document.getElementById('label_sku').value, src: document.getElementById('src_sku').value },
             itemName: { label: document.getElementById('label_itemName').value, src: document.getElementById('src_itemName').value },
             qty: { label: document.getElementById('label_qty').value, src: document.getElementById('src_qty').value },
@@ -197,41 +220,70 @@
         }, {});
 
         const orderIds = Object.keys(grouped);
+        const todayStr = new Date().toISOString().split('T')[0];
+
         orderIds.forEach((oid, idx) => {
-            const items = grouped[oid];
-            const override = individualOverrides[oid] || { remark: items[0][settings.remark.src], extras: {} };
+            const excelRows = grouped[oid];
+            const override = individualOverrides[oid];
             
+            // 處理訂單時間格式 (新增修復序號邏輯)
+            let rawTimeValue = excelRows[0][settings.orderTime.src];
+            let cleanOrderTime = formatExcelDate(rawTimeValue);
+
+            const finalShipDate = override ? override.shipDate : todayStr;
+            const finalRemark = override ? override.remark : (excelRows[0][settings.remark.src] || '');
+            
+            const displayItems = (override && override.items) ? override.items : excelRows.map(it => ({
+                sku: it[settings.sku.src] || '',
+                itemName: it[settings.itemName.src] || '',
+                qty: it[settings.qty.src] || 1
+            }));
+
             const pageDiv = document.createElement('div');
             pageDiv.className = "print-page";
             
-            // 處理客製欄位顯示 (優先使用 override)
             const extrasHtml = extrasConfig.map(e => {
-                const val = (override.extras[e.label] !== undefined) ? override.extras[e.label] : (e.mode === 'excel' ? items[0][e.excelSrc] : e.manualVal);
+                const val = (override && override.extras[e.label] !== undefined) ? override.extras[e.label] : (e.mode === 'excel' ? excelRows[0][e.excelSrc] : e.manualVal);
                 return `<div><strong>${e.label}:</strong> ${val || '-'}</div>`;
             }).join('');
 
             pageDiv.innerHTML = `
-                <div class="slip-header"><h2>出貨明細單</h2><div>日期: ${new Date().toLocaleDateString()}</div></div>
-                <div class="info-grid"><div><strong>${settings.orderId.label}:</strong> ${oid}</div>${extrasHtml}</div>
+                <div class="slip-header"><h2>出貨明細單</h2><div>出貨日期: ${finalShipDate}</div></div>
+                <div class="info-grid">
+                    <div><strong>${settings.orderId.label}:</strong> ${oid} <span style="font-size: 13px; color: #555;">(${cleanOrderTime})</span></div>
+                    ${extrasHtml}
+                </div>
                 <table class="item-table">
-                    <thead><tr><th>序號</th><th>${settings.sku.label}</th><th>${settings.itemName.label}</th><th>${settings.qty.label}</th></tr></thead>
-                    <tbody>${items.map((it, i) => `<tr><td>${i+1}</td><td>${it[settings.sku.src]||'-'}</td><td>${it[settings.itemName.src]||'-'}</td><td>${it[settings.qty.src]||1}</td></tr>`).join('')}</tbody>
+                    <thead><tr><th width="8%">序號</th><th width="20%">${settings.sku.label}</th><th>${settings.itemName.label}</th><th width="12%">${settings.qty.label}</th></tr></thead>
+                    <tbody>${displayItems.map((it, i) => `<tr><td>${i+1}</td><td>${it.sku}</td><td>${it.itemName}</td><td>${it.qty}</td></tr>`).join('')}</tbody>
                 </table>
                 <div style="font-weight:bold; font-size:14px;">${settings.remark.label}:</div>
-                <div class="remark-box">${override.remark || '無'}</div>
+                <div class="remark-box">${finalRemark || '無'}</div>
                 <div class="page-counter">${idx + 1} / ${orderIds.length}</div>
                 
-                <div class="no-print" style="position: absolute; left: -180px; top: 10px; width: 160px;">
-                    <button class="individual-edit-btn" onclick="toggleEdit('${oid}')">📝 修改此單客製資訊</button>
+                <div class="no-print no-print-edit-wrapper">
+                    <button class="individual-edit-btn" onclick="toggleEdit('${oid}')">📝 修改此單內容</button>
                     <div id="edit_${oid}" class="edit-panel">
-                        <div class="edit-field-group"><label>備註內容</label><textarea id="edRem_${oid}" style="width:100%; height:50px;">${override.remark || ''}</textarea></div>
+                        <div class="edit-field-group"><label>出貨日期</label><input type="date" id="edShipDate_${oid}" value="${finalShipDate}"></div>
                         ${extrasConfig.map(e => `
                             <div class="edit-field-group">
                                 <label>${e.label}</label>
-                                <input type="text" class="edEx_${oid}" data-label="${e.label}" value="${override.extras[e.label] !== undefined ? override.extras[e.label] : (e.mode === 'excel' ? items[0][e.excelSrc] : e.manualVal)}">
+                                <input type="text" class="edEx_${oid}" data-label="${e.label}" value="${(override && override.extras[e.label] !== undefined) ? override.extras[e.label] : (e.mode === 'excel' ? excelRows[0][e.excelSrc] : e.manualVal)}">
                             </div>
                         `).join('')}
-                        <button onclick="saveEdit('${oid}')" style="width:100%; background:var(--success); color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">儲存此單修改</button>
+                        <div class="edit-field-group">
+                            <label>商品清單修改</label>
+                            ${displayItems.map((it, i) => `
+                                <div style="display:flex; gap:5px; margin-bottom:6px;">
+                                    <input type="text" class="edItemSku_${oid}" placeholder="SKU" value="${it.sku}" style="flex:1;">
+                                    <input type="text" class="edItemName_${oid}" placeholder="品名" value="${it.itemName}" style="flex:2;">
+                                    <input type="text" class="edItemQty_${oid}" placeholder="數量" value="${it.qty}" style="width:50px;">
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div class="edit-field-group"><label>備註內容</label><textarea id="edRem_${oid}" style="height:60px;">${finalRemark}</textarea></div>
+                        <button onclick="saveEdit('${oid}')" style="width:100%; background:var(--success); color:white; border:none; padding:10px; border-radius:5px; cursor:pointer; font-weight:bold; margin-bottom:5px;">儲存修改</button>
+                        <button onclick="resetSingle('${oid}')" style="width:100%; background:#fff; color:var(--danger); border:1px solid var(--danger); padding:5px; border-radius:5px; cursor:pointer; font-size:12px;">重設此單</button>
                     </div>
                 </div>
             `;
@@ -248,13 +300,22 @@
         el.style.display = el.style.display === 'block' ? 'none' : 'block';
     };
 
+    window.resetSingle = (oid) => {
+        delete individualOverrides[oid];
+        preparePreview();
+    };
+
     window.saveEdit = (oid) => {
+        const shipDate = document.getElementById(`edShipDate_${oid}`).value;
         const remark = document.getElementById(`edRem_${oid}`).value;
         const extras = {};
-        document.querySelectorAll(`.edEx_${oid}`).forEach(inp => {
-            extras[inp.getAttribute('data-label')] = inp.value;
-        });
-        individualOverrides[oid] = { remark, extras };
+        document.querySelectorAll(`.edEx_${oid}`).forEach(inp => { extras[inp.getAttribute('data-label')] = inp.value; });
+        const items = [];
+        const skus = document.querySelectorAll(`.edItemSku_${oid}`);
+        const names = document.querySelectorAll(`.edItemName_${oid}`);
+        const qtys = document.querySelectorAll(`.edItemQty_${oid}`);
+        for(let i = 0; i < skus.length; i++){ items.push({ sku: skus[i].value, itemName: names[i].value, qty: qtys[i].value }); }
+        individualOverrides[oid] = { shipDate, remark, extras, items };
         preparePreview();
     };
 
